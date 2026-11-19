@@ -16,7 +16,21 @@ function pageInfo(offset: number, total: number) {
   return { hasNextPage: end < total, hasPreviousPage: offset > 0, endCursor: String(end) };
 }
 
-function services(offset: number) {
+type CatalogNode = {
+  id: string;
+  code: string;
+  name: string;
+  price: number;
+  program?: { code: string; nameProgram?: string };
+};
+
+type CatalogConnection = {
+  totalCount: number;
+  pageInfo: ReturnType<typeof pageInfo>;
+  edges: { node: CatalogNode }[];
+};
+
+function services(offset: number): CatalogConnection {
   const end = Math.min(config.serviceCount, offset + config.pageSize);
   const edges = Array.from({ length: Math.max(0, end - offset) }, (_, index) => {
     const number = offset + index + 1;
@@ -25,7 +39,7 @@ function services(offset: number) {
   return { totalCount: config.serviceCount, pageInfo: pageInfo(offset, config.serviceCount), edges };
 }
 
-function items(offset: number) {
+function items(offset: number): CatalogConnection {
   const end = Math.min(config.itemCount, offset + config.pageSize);
   const edges = Array.from({ length: Math.max(0, end - offset) }, (_, index) => {
     const number = offset + index + 1;
@@ -35,22 +49,25 @@ function items(offset: number) {
 }
 
 function priceListServices() {
-  return services(0).edges.map(({ node }) => ({ node: { service: { ...node, nameProgram: node.program.code } } }));
+  return services(0).edges.map(({ node }) => ({ node: { service: { ...node, nameProgram: node.program?.code ?? "CCS" } } }));
 }
 
 function priceListItems() {
   return items(0).edges.map(({ node }) => ({ node: { item: { ...node, program: { code: "CCS", nameProgram: "Cheque Sante" } } } }));
 }
 
-function facilityCatalog(connection: { totalCount: number; pageInfo: ReturnType<typeof pageInfo>; edges: { node: JsonRecord }[] }, facilityId: string) {
+function facilityCatalog(connection: CatalogConnection, facilityId: string) {
   return {
     ...connection,
-    edges: connection.edges.map(({ node }) => ({ node: {
+    edges: connection.edges.map(({ node }) => {
+      const programCode = node.program?.code ?? "CCS";
+      return { node: {
       ...node,
       type: "H",
-      program: { code: node.program.code, nameProgram: node.program.code },
+      program: { code: programCode, nameProgram: node.program?.nameProgram ?? programCode },
       healthFacility: { id: facilityId, code: "ES168" },
-    } })),
+      } };
+    }),
   };
 }
 
