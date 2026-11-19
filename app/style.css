@@ -1,0 +1,12 @@
+:root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #f4f7f6; color: #14201c; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1100px; margin: 0 auto; padding: 48px 24px; }
+h1 { margin: 0 0 8px; font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -.04em; }
+.sub { color: #53615c; max-width: 760px; line-height: 1.6; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin: 32px 0; }
+.card, pre { background: white; border: 1px solid #d9e2df; border-radius: 14px; padding: 18px; box-shadow: 0 5px 20px #173c2d0a; }
+.value { font-size: 2rem; font-weight: 750; color: #006b4f; }
+.label { color: #65736e; font-size: .85rem; text-transform: uppercase; letter-spacing: .07em; }
+code { color: #006b4f; }
+pre { overflow: auto; line-height: 1.5; }
