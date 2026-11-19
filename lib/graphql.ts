@@ -34,6 +34,26 @@ function items(offset: number) {
   return { totalCount: config.itemCount, pageInfo: pageInfo(offset, config.itemCount), edges };
 }
 
+function priceListServices() {
+  return services(0).edges.map(({ node }) => ({ node: { service: { ...node, nameProgram: node.program.code } } }));
+}
+
+function priceListItems() {
+  return items(0).edges.map(({ node }) => ({ node: { item: { ...node, program: { code: "CCS", nameProgram: "Cheque Sante" } } } }));
+}
+
+function facilityCatalog(connection: { totalCount: number; pageInfo: ReturnType<typeof pageInfo>; edges: { node: JsonRecord }[] }, facilityId: string) {
+  return {
+    ...connection,
+    edges: connection.edges.map(({ node }) => ({ node: {
+      ...node,
+      type: "H",
+      program: { code: node.program.code, nameProgram: node.program.code },
+      healthFacility: { id: facilityId, code: "ES168" },
+    } })),
+  };
+}
+
 function mutationResult(input: JsonRecord, label: string) {
   const clientMutationId = String(input.clientMutationId ?? randomUUID());
   const result = { clientMutationId, internalId: randomUUID() };
@@ -56,15 +76,23 @@ export function executeGraphQL(query: string, variables: JsonRecord): JsonRecord
     const edges = log ? [{ node: log }] : [];
     return { mutationLogs: { totalCount: edges.length, edges } };
   }
-  if (["getservices", "claimservices"].includes(name)) return { medicalServices: services(offset) };
-  if (["getmedications", "getitems", "claimitems"].includes(name)) return { medicalItems: items(offset) };
+  if (["getservices", "claimservices"].includes(name)) return { medicalServices: facilityCatalog(services(offset), String(variables.hfId ?? "hf-1")) };
+  if (["getmedications", "getitems", "claimitems"].includes(name)) return { medicalItems: facilityCatalog(items(offset), String(variables.hfId ?? "hf-1")) };
+  if (name === "claimgenericcatalog" || name === "claimgenericcatalogquery") {
+    const facilityId = String(variables.healthFacilityId ?? "hf-1");
+    return { medicalServices: facilityCatalog(services(offset), facilityId), medicalItems: facilityCatalog(items(offset), facilityId) };
+  }
   if (["getdiagnosis", "claimdiagnoses"].includes(name)) {
     const all = Array.from({ length: 20 }, (_, i) => ({ node: { id: String(i + 1), code: `D${String(i + 1).padStart(3, "0")}`, name: `Mock diagnosis ${i + 1}` } }));
     return { diagnoses: { totalCount: all.length, pageInfo: pageInfo(offset, all.length), edges: all.slice(offset, offset + config.pageSize) } };
   }
-  if (name === "getprograms") return { programs: { edges: [{ node: { id: "1", code: "CCS", name: "Cheque Sante" } }, { node: { id: "2", code: "VIH", name: "VIH" } }] } };
-  if (["getclaimadmins", "claimmobilesetup"].includes(name)) return { claimAdmins: { totalCount: 1, pageInfo: pageInfo(0, 1), edges: [{ node: { id: "ca-1", code: "MOCK001", lastName: "Administrator", healthFacility: { id: "hf-1", code: "ES168", name: "Mock Health Facility" }, programs: [{ id: "1", code: "CCS" }] } }] } };
-  if (name === "getpaymentlist") return { claimAdmins: { edges: [{ node: { code: variables.claim_administrator_code ?? "MOCK001", healthFacility: { id: "hf-1", code: "ES168", servicesPricelist: { details: services(0).edges }, itemsPricelist: { details: items(0).edges } } } }] } };
+  if (["getprograms", "claimprograms"].includes(name)) return { program: { edges: [{ node: { idProgram: "1", code: "CCS", nameProgram: "Cheque Sante" } }, { node: { idProgram: "2", code: "VIH", nameProgram: "VIH" } }] } };
+  if (name === "claimgenericcatalog" || name === "claimeligiblecatalog") {
+    const facilityId = String(variables.healthFacilityId ?? "hf-1");
+    return { medicalServices: facilityCatalog(services(offset), facilityId), medicalItems: facilityCatalog(items(offset), facilityId) };
+  }
+  if (["getclaimadmins", "claimmobilesetup"].includes(name)) return { claimAdmins: { totalCount: 1, pageInfo: pageInfo(0, 1), edges: [{ node: { id: "ca-1", code: variables.code ?? "MOCK001", lastName: "Administrator", healthFacility: { id: "hf-1", code: "ES168", name: "Mock Health Facility", servicesPricelist: { details: { edges: priceListServices() } }, itemsPricelist: { details: { edges: priceListItems() } } }, programs: [{ id: "1", code: "CCS" }] } }] } };
+  if (name === "getpaymentlist") return { claimAdmins: { edges: [{ node: { code: variables.claim_administrator_code ?? "MOCK001", healthFacility: { id: "hf-1", code: "ES168", servicesPricelist: { details: { edges: priceListServices() } }, itemsPricelist: { details: { edges: priceListItems() } } } } }] } };
   if (["getinsuree", "inquire", "getinsureeinquire", "insureeprofilequery"].includes(name)) {
     const chfId = String(variables.chfId ?? variables.chfid ?? variables.insureeCHFID ?? "120902348063480");
     const node = { id: "insuree-1", uuid: "insuree-uuid-1", chfId, lastName: "Mock", otherNames: "Beneficiary", gender: { code: "F" }, dob: "1990-01-01" };

@@ -29,6 +29,23 @@ test("GraphQL catalogue is paginated", async () => {
   assert.ok(result.data.medicalServices.edges.length <= 100);
 });
 
+test("Flutter claim setup operations return the expected response shapes", async () => {
+  const headers = { authorization: "Bearer cameroon-mock-token", "content-type": "application/json" };
+  const setup = await fetch(`${base}/api/graphql`, { method: "POST", headers, body: JSON.stringify({ query: "query ClaimMobileSetup($code:String){claimAdmins(code:$code){edges{node{id code healthFacility{id code name servicesPricelist{details{edges{node{service{code name price program{code nameProgram}}}}}}} itemsPricelist{details{edges{node{item{code name price program{code nameProgram}}}}}}}}}}", variables: { code: "MOCK001" } }) });
+  const setupData = (await setup.json()).data.claimAdmins.edges[0].node;
+  assert.equal(setupData.code, "MOCK001");
+  assert.ok(setupData.healthFacility.servicesPricelist.details.edges[0].node.service.code);
+  assert.ok(setupData.healthFacility.itemsPricelist.details.edges[0].node.item.code);
+
+  const programs = await fetch(`${base}/api/graphql`, { method: "POST", headers, body: JSON.stringify({ query: "query ClaimPrograms($first:Int){program(first:$first){edges{node{idProgram code nameProgram}}}}", variables: { first: 100 } }) });
+  assert.equal((await programs.json()).data.program.edges[0].node.code, "CCS");
+
+  const eligible = await fetch(`${base}/api/graphql`, { method: "POST", headers, body: JSON.stringify({ query: "query ClaimEligibleCatalog($healthFacilityId:ID){medicalServices(healthFacilityId:$healthFacilityId){edges{node{id code name price type program{code nameProgram} healthFacility{id code}}}} medicalItems(healthFacilityId:$healthFacilityId){edges{node{id code name price type program{code nameProgram} healthFacility{id code}}}}}", variables: { healthFacilityId: "hf-1" } }) });
+  const eligibleData = (await eligible.json()).data;
+  assert.equal(eligibleData.medicalServices.edges[0].node.healthFacility.id, "hf-1");
+  assert.equal(eligibleData.medicalItems.edges[0].node.healthFacility.code, "ES168");
+});
+
 test("commission contract enforces legacy spelling", async () => {
   const response = await fetch(`${base}/rest/api/policy/commissions`, { method: "POST", headers: { authorization: "Bearer cameroon-mock-token", "api-version": "3", "content-type": "application/json" }, body: JSON.stringify({ insurance_product_code: "CSU" }) });
   assert.equal(response.status, 422);
