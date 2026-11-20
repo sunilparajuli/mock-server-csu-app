@@ -27,6 +27,7 @@ function fhirBundle(resources: JsonRecord[], page: number) {
 }
 
 async function handler(request: Request, context: { params: Promise<{ path: string[] }> }) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204 });
   const { path: parts } = await context.params;
   const path = `/${parts.join("/")}${new URL(request.url).pathname.endsWith("/") ? "/" : ""}`;
   const route = path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
@@ -89,5 +90,20 @@ async function handler(request: Request, context: { params: Promise<{ path: stri
   return json({ detail: `Mock route not found: ${request.method} ${path}` }, 404);
 }
 
-export const GET = handler;
-export const POST = handler;
+const corsHeaders = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "Authorization, Content-Type, Accept, api-version",
+  "access-control-max-age": "86400",
+};
+
+async function withCors(request: Request, context: { params: Promise<{ path: string[] }> }) {
+  const response = await handler(request, context);
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(corsHeaders)) headers.set(name, value);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+export const GET = withCors;
+export const POST = withCors;
+export const OPTIONS = withCors;
